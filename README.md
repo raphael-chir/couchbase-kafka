@@ -222,17 +222,18 @@ GROUP BY id;
 ```
 CREATE STREAM contrats_changes AS
 SELECT
-    c1.id,
+    c1.id AS contrat_id,
     c1.content->datePremierEffet AS new_datePremierEffet,
     c2.latest_datePremierEffet AS old_datePremierEffet
 FROM contrats_stream c1
 LEFT JOIN contrats_table c2
 ON c1.id = c2.id
 WHERE c1.content->datePremierEffet != c2.latest_datePremierEffet
+OR c2.latest_datePremierEffet IS NULL
 EMIT CHANGES;
 ```
 
-#### Troubleshots
+#### Troubleshoots
 
 
 If you want to replay all events already sore in the topic :  
@@ -253,66 +254,9 @@ kafka-consumer-groups --bootstrap-server localhost:9092 --group _confluent-contr
 
  you can use ```kafka-console-consumer``` available in kafka-server or cp-server
 
-### Transform data to a Domain Event
-
-
-
-## Create a STREAM
-
-```
-CREATE STREAM contrats_stream (
-  id STRING KEY,
-  numSocietaire STRING,
-  datePremierEffet STRING,
-  situationsRefs ARRAY<STRUCT<
-    id STRING,
-    datePremierEffet STRING
-  >>
-) WITH (
-    KAFKA_TOPIC='mat-sample.contrats.contrats',
-    VALUE_FORMAT='JSON'
-);
-```
-
-```
-CREATE TABLE contrats_table AS
-SELECT id,
-       numSocietaire,
-       datePremierEffet,
-       situationsRefs,
-       COUNT(*) AS total_count
-FROM contrats_stream
-GROUP BY id, numSocietaire,datePremierEffet,situationsRefs;
-```
-
-## Explore data with TABLE
-
-To better explore data than the usage of 
+To see the message in the topic
 ```
 PRINT 'my_topic' FROM BEGINNING;
 ```
-We can setup Kafka TABLE that maintain a state of the data sent, but this table can't handle PULL Ksql Requests, so it can't be queryable. 
-This table is used for handling PUSH Ksql Requests.
-Anyway we create it and derive it to a queryable one.
 
-```
-CREATE TABLE contrats_table(
-  id STRING PRIMARY KEY,
-  numSocietaire STRING,
-  datePremierEffet TIMESTAMP,
-  situationsRefs ARRAY<STRUCT<
-    id STRING,
-    datePremierEffet TIMESTAMP
-  >>
-)WITH(
-  KAFKA_TOPIC = 'mat-sample.contrats.contrats',
-  VALUE_FORMAT = 'JSON'
-);
-```
-
-Then create derived table 
-```
-CREATE TABLE QUERYABLE_CONTRATS_TABLE AS 
-SELECT * FROM  CONTRATS_TABLE;
-```
-
+### Transform data to a Domain Event
